@@ -7,7 +7,8 @@ import {Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper}
 // @ts-ignore
 import {MoreHoriz, MoreVert} from "@mui/icons-material"; // Resizing icons
 import "react-resizable/css/styles.css";
-import Aladin from "./Aladin"; // Import required styles
+import Aladin from "./Aladin";
+import LightCurvePlot, {LightCurvePlotProps} from "./LichtCurvePlot"; // Import required styles
 
 const drawerWidth = 240;
 
@@ -17,7 +18,11 @@ const MainLayout: React.FC = () => {
         const [rightPanelWidth, setRightPanelWidth] = useState(window.innerWidth * 0.4);
         const [bottomPanelHeight, setBottomPanelHeight] = useState(window.innerHeight * 0.4);
         const [catalog, setCatalog] = useState<any[]>([]);
+        const [lcId, setLcId] = useState<LightCurvePlotProps | null>(null);
         const [selectedObj, setSelectedObj] = useState(-1);
+
+        const [fov, setFov] = useState({raMin: 0, raMax: 0, decMin: 0, decMax: 0})
+
 
         useEffect(() => {
             const savedWidth = localStorage.getItem("rightPanelWidth");
@@ -32,24 +37,31 @@ const MainLayout: React.FC = () => {
         }, [rightPanelWidth, bottomPanelHeight]);
 
 // Define discrete values
-        const sliderValues = ["all", "0-0.1", "0.1-0.3", "0.3-0.7", "0.7-1.5", "1.5+"];
-        const zbins = [[0, 10], [0, 0.1], [0.1, 0.3], [0.3, 0.7], [0.7, 1.5], [1.5, 10]];
+        const sliderValues = ["all", '0.1', '0.4', '0.7', '1.0', '1.3', '1.6', '1.9', '2.2'];
+        const zbins = [[0, 10], [0.0, 0.2],
+            [0.3, 0.5],
+            [0.6, 0.8],
+            [0.9, 1.1],
+            [1.2, 1.4],
+            [1.5, 1.7],
+            [1.8, 2.0],
+            [2.1, 2.3]]
 
 // Function to handle slider change
         const handleSliderChange = (event: Event, newValue: number | number[]) => {
             setSliderIndex(newValue as number);
-            console.log("Slider Value:", sliderValues[newValue as number]); // ✅ Logs selected value
         };
         const [sliderIndex, setSliderIndex] = useState(0);
+
+        useEffect(() => {
+            updateCatalog();
+        }, [sliderIndex, fov]);
 
 // Convert values into marks
         const marks = sliderValues.map((value, index) => ({
             value: index, // Slider works with index positions
             label: value.toString(),
         }));
-
-        let raMin: number, raMax: number, decMin: number, decMax: number;
-        raMin = raMax = decMin = decMax = 0;
 
         const rowRefs = useRef<(HTMLTableRowElement | null)[]>([]);
 
@@ -67,16 +79,11 @@ const MainLayout: React.FC = () => {
             setSelectedObj(index);
         }
 
-        function updateFov(fov: number[], radec: number[]) {
-            const newRaMin = radec[0] - fov[0] / 3;
-            const newRaMax = radec[0] + fov[0] / 3;
-            const newDecMin = radec[1] - fov[1] / 3;
-            const newDecMax = radec[1] + fov[1] / 3;
-            if (newRaMin !== raMin || newRaMax !== raMax || newDecMin !== decMin || newDecMax !== decMax) {
-                const zmin = zbins[sliderIndex][0];
-                const zmax = zbins[sliderIndex][1];
-                const apiUrl = `http://localhost:5000/data?raMin=${newRaMin}&raMax=${newRaMax}&decMin=${newDecMin}&decMax=${newDecMax}&zMin=${zmin}&zMax=${zmax}`;
-
+        function updateCatalog() {
+            const zmin = zbins[sliderIndex][0];
+            const zmax = zbins[sliderIndex][1];
+            const apiUrl = `http://localhost:5000/data?raMin=${fov.raMin}&raMax=${fov.raMax}&decMin=${fov.decMin}&decMax=${fov.decMax}&zMin=${zmin}&zMax=${zmax}`;
+            if (showBottomPanel) {
                 axios.get(apiUrl)
                     .then(response => {
                         const parsedData = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
@@ -89,17 +96,25 @@ const MainLayout: React.FC = () => {
                     .catch(error => {
                         console.error("Error fetching data:", error);
                     });
+            } else {
+                setCatalog([]);
             }
-
-            raMin = newRaMin;
-            raMax = newRaMax;
-            decMin = newDecMin;
-            decMax = newDecMax;
         }
 
-        function showLightCurve(objId, ra, dec) {
-            setShowRightPanel(true);
+        function updateFov(newfov: number[], radec: number[]) {
+            const newRaMin = radec[0] - newfov[0] / 3;
+            const newRaMax = radec[0] + newfov[0] / 3;
+            const newDecMin = radec[1] - newfov[1] / 3;
+            const newDecMax = radec[1] + newfov[1] / 3;
+            if (newRaMin !== fov.raMin || newRaMax !== fov.raMax || newDecMin !== fov.decMin || newDecMax !== fov.decMax) {
+                setFov({raMin: newRaMin, raMax: newRaMax, decMin: newDecMin, decMax: newDecMax});
+                updateCatalog();
+            }
+        }
 
+        function showLightCurve(objId: number, ra: number, dec: number) {
+            setLcId({objid: objId, ra: ra, dec: dec});
+            setShowRightPanel(true);
         }
 
         const columns = [
@@ -107,21 +122,7 @@ const MainLayout: React.FC = () => {
             "r_cModelFlux", "r_cModelFluxErr", "i_cModelFlux", "i_cModelFluxErr", "z_cModelFlux", "z_cModelFluxErr",
             "y_cModelFlux", "y_cModelFluxErr", "u_cModelMag", "u_cModelMagErr", "g_cModelMag", "g_cModelMagErr",
             "r_cModelMag", "r_cModelMagErr", "i_cModelMag", "i_cModelMagErr", "z_cModelMag", "z_cModelMagErr",
-            "y_cModelMag", "y_cModelMagErr", "ebv", "zmedian", "zmode", "zmean", "objectId_w11", "refFwhm_w11",
-            "shape_flag_w11", "sky_object_w11", "parentObjectId_w11", "detect_isPrimary_w11", "x_w11", "y_w11",
-            "xErr_w11", "yErr_w11", "shape_yy_w11", "shape_xx_w11", "shape_xy_w11", "coord_ra_w11", "coord_dec_w11",
-            "coord_raErr_w11", "coord_decErr_w11", "tract_w11", "patch_w11", "detect_isIsolated_w11", "u_psfFlux_w11",
-            "u_psfFluxErr_w11", "u_kronFlux_w11", "u_kronFluxErr_w11", "u_kronRad_w11", "g_psfFlux_w11",
-            "g_psfFluxErr_w11", "g_kronFlux_w11", "g_kronFluxErr_w11", "g_kronRad_w11", "r_psfFlux_w11",
-            "r_psfFluxErr_w11", "r_kronFlux_w11", "r_kronFluxErr_w11", "r_kronRad_w11", "i_psfFlux_w11",
-            "i_psfFluxErr_w11", "i_kronFlux_w11", "i_kronFluxErr_w11", "i_kronRad_w11", "z_psfFlux_w11",
-            "z_psfFluxErr_w11", "z_kronFlux_w11", "z_kronFluxErr_w11", "z_kronRad_w11", "y_psfFlux_w11",
-            "y_psfFluxErr_w11", "y_kronFlux_w11", "y_kronFluxErr_w11", "y_kronRad_w11", "u_psfMag_w11",
-            "u_psfMagErr_w11", "u_kronMag_w11", "u_kronMagErr_w11", "g_psfMag_w11", "g_psfMagErr_w11",
-            "g_kronMag_w11", "g_kronMagErr_w11", "r_psfMag_w11", "r_psfMagErr_w11", "r_kronMag_w11",
-            "r_kronMagErr_w11", "i_psfMag_w11", "i_psfMagErr_w11", "i_kronMag_w11", "i_kronMagErr_w11",
-            "z_psfMag_w11", "z_psfMagErr_w11", "z_kronMag_w11", "z_kronMagErr_w11", "y_psfMag_w11",
-            "y_psfMagErr_w11", "y_kronMag_w11", "y_kronMagErr_w11"
+            "y_cModelMag", "y_cModelMagErr", "ebv", "zmedian", "zmode", "zmean"
         ];
 
         // @ts-ignore
@@ -161,8 +162,8 @@ const MainLayout: React.FC = () => {
                         },
                     }}
                 >
-                    <Box sx={{width: "80%", textAlign: "center", marginBottom: 2}}>
-                        <img src="/lincc-logo.png" style={{width: "100%", height: "auto"}}/>
+                    <Box sx={{width: "80%", textAlign: "left", marginBottom: 2}}>
+                        <img src="/lincc-logo.png" style={{height: "64px"}}/>
                     </Box>
 
                     <Box sx={{flexGrow: 1}}>
@@ -178,7 +179,7 @@ const MainLayout: React.FC = () => {
                                 color: "#1976d2",
                             }}
                         >
-                            Redshift (ZMode) Bins
+                            Redshift Value
                         </Typography>
 
                         <Slider
@@ -205,8 +206,9 @@ const MainLayout: React.FC = () => {
                             transition: "padding-bottom 0.3s ease",
                         }}
                     >
-                        <Button fullWidth onClick={() => setShowBottomPanel(!showBottomPanel)}>Show
-                            Catalog</Button>
+                        <Button fullWidth onClick={() => setShowBottomPanel(!showBottomPanel)}>
+                            {showBottomPanel ? "Hide Catalog" : "Show Catalog"}
+                        </Button>
                     </Box>
 
 
@@ -255,8 +257,8 @@ const MainLayout: React.FC = () => {
                             borderLeft: "2px solid rgba(255,255,255,0.2)",
                         }}
                     >
-                        <Box sx={{padding: "20px"}}>
-                            <Typography variant="h6">Resizable Right Panel</Typography>
+                        <Box sx={{padding: "20px", width: "100%"}}>
+                            <LightCurvePlot objid={lcId?.objid} ra={lcId?.ra} dec={lcId?.dec}/>
                             <Button onClick={() => setShowRightPanel(false)}>Close</Button>
                         </Box>
 

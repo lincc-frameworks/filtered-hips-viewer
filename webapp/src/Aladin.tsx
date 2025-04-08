@@ -34,17 +34,17 @@ function Aladin({sliderIndex, setFov, catalog, setSelectedObj}: {
         });
     }, []);
 
-    const urls = [
-        "http://localhost:3000/gri/",
-        "http://localhost:3000/gri0/",
-        "http://localhost:3000/gri0.1/",
-        "http://localhost:3000/gri0.3/",
-        "http://localhost:3000/gri0.7/",
-        "http://localhost:3000/gri1.5/"
-    ]
+    const urls = ['http://localhost:3000/gri/',
+        'http://localhost:3000/gri_pdf_hips/bin0.1',
+        'http://localhost:3000/gri_pdf_hips/bin0.4',
+        'http://localhost:3000/gri_pdf_hips/bin0.7',
+        'http://localhost:3000/gri_pdf_hips/bin1.0',
+        'http://localhost:3000/gri_pdf_hips/bin1.3',
+        'http://localhost:3000/gri_pdf_hips/bin1.6',
+        'http://localhost:3000/gri_pdf_hips/bin1.9',
+        'http://localhost:3000/gri_pdf_hips/bin2.2']
 
     const handleSliderUpdate = (value: number) => {
-        console.log("Inner Component received new slider value:", value);
         if (aladin) {
             aladin.setImageSurvey(aladin.createImageSurvey(urls[value]));
         }
@@ -72,8 +72,7 @@ function Aladin({sliderIndex, setFov, catalog, setSelectedObj}: {
             if (aladin) {
                 setFov(aladin.getFov(), aladin.getRaDec()); // Call parent function every 500ms
             }
-        }, 500);
-
+        }, 1000);
         return () => clearInterval(interval); // Cleanup on unmount
     }, [setFov]);
 
