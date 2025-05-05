@@ -18,7 +18,7 @@ ssh -L 3000:localhost:3000 <your-slac-ssh>
 
 ### Prerequisites: Node.js
 
-To run the app, Node.js must first be installed if you do not already have it. To install, run the following commands:
+To run the app, Node.js must first be installed if you do not already have it [on USDF]. To install, run the following commands:
 
 ```commandline
 # Download and install nvm:
